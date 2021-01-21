@@ -74,7 +74,7 @@ def detect_tictactoe(name):
     # Podział na regiony
     regions = measure.regionprops(labeled_img)
     #plot_regions(regions, labeled_img)
-
+    
     # Plansze
     for region in regions:
         width = region.bbox[3] - region.bbox[1]
@@ -97,7 +97,6 @@ def detect_tictactoe(name):
                     w += width/3
                 h += height/3
             game_positions.append(central_positions)
-
     # Figury
     for region in regions:
         width = region.bbox[3] - region.bbox[1]
