@@ -12,9 +12,9 @@ MIN_GAME_HEIGHT = 400
 # Minimalne wymiary znaków 'X' i 'O'
 MIN_FIGURE_WIDTH = 100
 MIN_FIGURE_HEIGHT = 100
-MIN_CIRCLE_DIAMETER = 100
+MIN_CIRCLE_RADIUS = 10
 
-def closest_point(pos, positions) -> int:
+def closest_point(p, positions) -> int:
     """Zwraca indeks najbliższego pola
 
     Funkcja sprawdza dystans pomiedzy dwoma punktami i zwraca
@@ -23,18 +23,18 @@ def closest_point(pos, positions) -> int:
     min_dist = float('inf')
     index = 0
     for i, x in enumerate(positions):
-        if (x[0]-pos[0])**2 + (x[1]-pos[1])**2 < min_dist:
-            min_dist = (x[0]-pos[0])**2 + (x[1]-pos[1])**2
+        if (x[0]-p[0])**2 + (x[1]-p[1])**2 < min_dist:
+            min_dist = (x[0]-p[0])**2 + (x[1]-p[1])**2
             index = i
     return index
 
-def distance(pos, positions) -> float:
+def distance(p, positions) -> float:
     """Zwraca dystans środka figury do najbliższego punktu"""
     min_dist = float('inf')
     for x in positions:
-        if (x[0]-pos[0])**2 + (x[1]-pos[1])**2 < min_dist:
-            min_dist = (x[0]-pos[0])**2 + (x[1]-pos[1])**2
-    return min_dist
+        if (x[0]-p[0])**2 + (x[1]-p[1])**2 < min_dist:
+            min_dist = (x[0]-p[0])**2 + (x[1]-p[1])**2
+    return math.sqrt(min_dist)
     
 def plot_regions(regions, labeled_image):
     """Rysuje obramowanie dla kazdego regionu
@@ -52,28 +52,31 @@ def plot_regions(regions, labeled_image):
         plt.plot(bx, by, '-r', linewidth=1)
     plt.title("Podział na regiony")
 
-def detect_tictactoe(name):
+def print_game(game_figures):
+    for i in range(len(game_figures)):
+        print("Game " + str(i+1) + ":")
+        for j in range(3):
+            print(game_figures[i][3*j : 3*(j+1)])
+
+
+def detect_tictactoe(picture_path):
     """Główna funkcja do wykrywania gry w kółko i krzyżyk"""
-    game_dimensions = [] # Lista skrajnych punktów planszy (min_x, min_y, max_x, max_y)
+    game_boundaries = [] # Lista skrajnych punktów planszy (min_x, min_y, max_x, max_y)
     game_positions = []  # Lista środków wszystkich dziewięciu pól (y, x)
     answers = []         # Lista wykrytych znaków 'O' i 'X'
 
-    # Zamiana kolorów na odcienie szarości
-    img = rgb2gray(io.imread(name))
-    # Progowanie obrazu
-    img_threshold = img < filters.threshold_sauvola(img, window_size = 91, k = 0.05)
-    # Usuwanie małych obiektów
+    img = rgb2gray(io.imread(picture_path))
+    img_threshold = img < filters.threshold_sauvola(img, window_size = 91, k = 0.05)  
     img_remove_small = mp.remove_small_objects(img_threshold, min_size = 100)
-    # Dylatacja czyli wypełnianie dziur,  K - sąsiadujące ze sobą pixele
+    # K to sąsiadujące ze sobą pixele
     K = np.ones((5,5))
     img_dyla = mp.dilation(img_remove_small, selem = K)
-    # Ponowne usuwanie małych obiektów
     img_remove = mp.remove_small_objects(img_dyla, min_size = 600)
     # Łączenie ze sobą pikseli
     labeled_img = measure.label(img_remove)
     # Podział na regiony
     regions = measure.regionprops(labeled_img)
-    #plot_regions(regions, labeled_img)
+    plot_regions(regions, labeled_img)
     
     # Plansze
     for region in regions:
@@ -87,7 +90,7 @@ def detect_tictactoe(name):
             # Jeśli dany region spełnia wszystkie warunki uznaję go za plansze
             central_positions = []
             answers.append(['-' for i in range(9)])
-            game_dimensions.append(region.bbox)
+            game_boundaries.append(region.bbox)
             # Wyznaczanie współrzędnych środków 9 pól znalezionej planszy
             h = region.bbox[0] + height/6
             for i in range(3):
@@ -101,9 +104,9 @@ def detect_tictactoe(name):
     for region in regions:
         width = region.bbox[3] - region.bbox[1]
         height = region.bbox[2] - region.bbox[0]
-        for i, x in enumerate(game_dimensions):
-            game_width = game_dimensions[i][3] - game_dimensions[i][1]
-            game_height = game_dimensions[i][2] - game_dimensions[i][0]
+        for i, x in enumerate(game_boundaries):
+            game_width = game_boundaries[i][3] - game_boundaries[i][1]
+            game_height = game_boundaries[i][2] - game_boundaries[i][0]
             if (width*2 < game_width
                     and width > MIN_FIGURE_WIDTH
                     and width > game_width / 10
@@ -118,22 +121,17 @@ def detect_tictactoe(name):
                 dist = distance(region.centroid, region.coords)
                 # Znajduje pole z najblizszym srodkiem jednego z 9 pól
                 index = closest_point(region.centroid, game_positions[i])
-                if dist > MIN_CIRCLE_DIAMETER:
+                if dist > MIN_CIRCLE_RADIUS:
                     answers[i][index] = 'O'
                 else:
                     answers[i][index] = 'X'
-    # Wyświetlenie w konsoli znalezionej gry
-    for i in range(len(game_dimensions)):
-        print("Game " + str(i+1) + ":")
-        for j in range(3):
-            print(answers[i][3*j : 3*(j+1)])
+    print_game(answers)
 
 def main():
-    name = "plansze/plansza1.jpg"
-    plt.figure(1)
-    plt.imshow(io.imread(name))
+    picture_path = "plansze/plansza1.jpg"
+    plt.imshow(io.imread(picture_path))
     plt.axis('off')
-    detect_tictactoe(name)
+    detect_tictactoe(picture_path)
     plt.show()
     # plt.figure(1)
     # plt.imshow(img)
